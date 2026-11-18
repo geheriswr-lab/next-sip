@@ -128,7 +128,18 @@ NEXT SIP ใช้ AI 4 บทบาท + เครื่องมือธุ�
 - คู่มือเชื่อม LINE Messaging API จริง (Webhook)
 - คู่มือต่อวงจร + โค้ด Arduino สำหรับ **ESP32 + โพรบ DS18B20** ส่งอุณหภูมิทุก 60 วินาที → ดู [`hardware/esp32-ds18b20/`](hardware/esp32-ds18b20/)
 
-### 3.8 อื่น ๆ
+### 3.8 Thailand Compliance Gate — ยืนยันอายุ 20+
+- หน้าต่างคัดกรองอายุตาม พ.ร.บ. ควบคุมเครื่องดื่มแอลกอฮอล์ พ.ศ. 2551 แสดงก่อนเข้าใช้งานแพลตฟอร์ม
+- ผู้ใช้เลือกปีเกิด (แสดงทั้ง ค.ศ./พ.ศ.) แล้วยืนยันอายุ 20 ปีบริบูรณ์ขึ้นไป หรือกด "อายุน้อยกว่า 20 ปี"
+- มีทางเข้า **Admin Portal** จากหน้านี้
+
+### 3.9 Admin Operations & Compliance Console
+- ระบบหลังบ้านแยกจากบัญชีลูกค้า ล็อกอินด้วย Username/Password
+- **Security & RBAC:** เข้ารหัสรหัสผ่านด้วย bcrypt, ป้องกัน Brute-Force (Lockout), CSRF & Session Guard, **TOTP 2FA**, HTTPS / HttpOnly Cookie Session, บังคับเปลี่ยนรหัสผ่านเมื่อเข้าครั้งแรก, ลืม/รีเซ็ตรหัสผ่าน
+- **Thai Beverage Law:** คัดกรองอายุ 20+, ตรวจข้อความต้องห้าม ม.32, จำกัดคำสั่งซื้อแอลกอฮอล์เฉพาะผู้ผ่าน KYC
+- โมดูลจัดการ: ภาพรวม, สินค้า, หมวดหมู่, แบรนด์, สต็อก (Inventory), คำสั่งซื้อ, ลูกค้า, เนื้อหา, Analytics, ผู้ใช้/สิทธิ์, ตั้งค่า และ **Audit Log** แบบเรียลไทม์
+
+### 3.10 อื่น ๆ
 - **ผู้ช่วย AI ประจำโรงบ่ม** (Floating chat, `/api/chat`)
 - รองรับหลายภาษา (TH/EN)
 - **Settings**: สถานะ Gemini (`/api/health`), Backup/Restore ข้อมูลเป็น JSON, รีเซ็ตข้อมูลตัวอย่าง, ล้าง RAG cache, รายการงานวิจัยอ้างอิง
@@ -145,7 +156,7 @@ NEXT SIP ใช้ AI 4 บทบาท + เครื่องมือธุ�
 | **AI Model** | **Google Gemini Flash API** — สร้างสูตร, อธิบาย Batch, เขียนเรื่องราว 4 ภาษา, ปรับคำโฆษณา, RAG, Chat |
 | **AI / Algorithm ฝั่ง client** | Deterministic Food-Chemistry Engine (Aroma Bridge, กฎ 26 ข้อ, Fermentation Kinetic Model, Yield Estimator, Compliance rule-based detector, TF-IDF retrieval) — คำนวณในเบราว์เซอร์ 100% |
 | **Database** | **Firebase Firestore** (Marketplace, Orders, KYC, Buyer Demand) + **LocalStorage** (Batches, Passports ของผู้ใช้) |
-| **Auth** | **Firebase Authentication** (Google Sign-In) + RBAC 4 ระดับ |
+| **Auth** | **Firebase Authentication** (Google Sign-In) + RBAC 4 ระดับ สำหรับผู้ใช้ · **Admin Auth แยก**: bcrypt, TOTP 2FA, HttpOnly Cookie Session, CSRF protection, Brute-force lockout, Audit Log |
 | **Integration / API** | LINE Messaging API (Webhook), IoT REST endpoint สำหรับ ESP32, Payment Gateway Omise / 2C2P (Demo mode) |
 | **Hardware** | ESP32 + DS18B20 waterproof temperature probe + Resistor 4.7kΩ |
 | **Cloud / Deployment** | Google AI Studio → Google Cloud (Cloud Run) · โดเมน `next-sip.ai.studio` |
@@ -163,6 +174,10 @@ NEXT SIP ใช้ AI 4 บทบาท + เครื่องมือธุ�
 | POST | `/api/rag/query` | ถาม-ตอบคลังความรู้ |
 | POST | `/api/cost/analyze` | วิเคราะห์ต้นทุนและ Margin |
 | POST | `/api/chat` | ผู้ช่วย AI ประจำโรงบ่ม |
+| GET | `/api/site/public-config` | ค่าตั้งค่าสาธารณะของเว็บไซต์ |
+| POST | `/api/admin/auth/*` | login, logout, me, change/forgot/reset-password, verify-2fa, 2fa setup/enable/disable |
+| GET/POST/PUT/DELETE | `/api/admin/{products, categories, brands, inventory, orders, customers, content, users, settings}` | CRUD ระบบหลังบ้าน |
+| GET | `/api/admin/{overview, analytics, audit-logs}` | Dashboard, Analytics และ Audit Trail |
 
 ---
 
@@ -201,7 +216,9 @@ flowchart LR
     FB[(Firebase Auth + Firestore)]
     PAY[Omise / 2C2P<br/>Demo mode]
 
-    P --> FE
+    A[ผู้ดูแลระบบ Admin] -->|Username + 2FA| ADM[Admin Console]
+    ADM -->|/api/admin/*| API
+    P -->|Age Gate 20+| FE
     B --> MK
     B -->|สแกน QR| SP
     FS & BG & CG & SP & KB --> ENG
@@ -330,6 +347,8 @@ LINE_CHANNEL_ACCESS_TOKEN=
 | Fermentation Kinetic Model | ⚠️ **Simplified** | โมเดล Sigmoid อ้างอิงที่ 27°C ยังไม่ได้ calibrate กับข้อมูลโรงหมักจริง |
 | Compliance Guard | ⚠️ **Screening tool** | เป็นเครื่องมือคัดกรองเบื้องต้น **ไม่ใช่คำปรึกษาทางกฎหมาย** ควรตรวจกับสำนักงานคณะกรรมการควบคุมเครื่องดื่มแอลกอฮอล์ กรมควบคุมโรค |
 | KYC ผู้ซื้อ/ผู้ผลิต | ⚠️ **Manual** | ส่งเอกสารได้ แต่การอนุมัติทำโดย Admin ด้วยมือ |
+| Age Gate 20+ | ⚠️ **Self-declared** | ผู้ใช้เลือกปีเกิดเอง ยังไม่มีการยืนยันตัวตนด้วยเอกสาร |
+| Admin Console | ℹ️ **Restricted** | ต้องมีบัญชีผู้ดูแลจึงจะเข้าได้ กรรมการขอบัญชีทดสอบจากทีมได้ |
 | Data privacy (Gemini Free tier) | ℹ️ | ข้อมูลที่ส่งเข้า Gemini Free tier อาจถูกใช้ปรับปรุงบริการ — ไม่ควรกรอกสูตรลับเชิงพาณิชย์ |
 
 ### Next Steps
